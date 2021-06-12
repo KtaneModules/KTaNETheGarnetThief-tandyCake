@@ -231,7 +231,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
                 case Faction.Cartel:
                     return 0;
                 case Faction.Police:
-                    return gemCnt / counts[2]; //Return gems / police
+                    return gemCnt / counts[2]; //Return garnets / police
                 case Faction.Beggar:
                     if (counts[2] != 0) //If there are no police, this'll throw a dividebyzero exception. 
                         return gemCnt % counts[2] / counts[3];
