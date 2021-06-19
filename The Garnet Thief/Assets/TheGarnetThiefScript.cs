@@ -56,17 +56,14 @@ public class TheGarnetThiefScript : MonoBehaviour {
         {
             button.OnInteract += delegate ()
             {
-                if (buttonMovements[Array.IndexOf(Buttons, button)] != null)
-                    StopCoroutine(buttonMovements[Array.IndexOf(Buttons, button)]);
-                buttonMovements[Array.IndexOf(Buttons, button)] = StartCoroutine(ButtonMove(button));
-                Submit((Faction)Array.IndexOf(Buttons, button));
+                int btn = Array.IndexOf(Buttons, button);
+                if (buttonMovements[btn] != null)
+                    StopCoroutine(buttonMovements[btn]);
+                buttonMovements[btn] = StartCoroutine(ButtonMove(button));
+                Submit((Faction)btn);
                 return false;
             };
         }
-
-
-        //Button.OnInteract += delegate () { ButtonPress(); return false; };
-
     }
 
     void Start ()
@@ -93,7 +90,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
             Bomb.IsIndicatorOff(Indicator.BOB) && Bomb.GetBatteryCount() == 2 && Bomb.GetBatteryHolderCount() == 2,
             Bomb.GetSolvableModuleNames().Contains("Lying Indicators") && Bomb.GetSolvableModuleNames().Contains("Mafia"),
             Bomb.GetSolvableModuleNames().Contains("Dr. Doctor") && Bomb.GetSolvableModuleNames().Contains("Stoichiometry"),
-            Bomb.GetPortPlates().All(x => x.Count() == 1),
+            Bomb.GetPortPlates().All(x => x.Count() == 1) && Bomb.GetPortPlateCount() == 1,
             Bomb.GetSerialNumber().Any(x => "G3N1US".Contains(x)),
             Bomb.GetBatteryHolderCount() + Bomb.GetIndicators().Count() + Bomb.GetPortPlates().Count() == 16,
             inds.Count(x => "AEIOU".Contains(x)) != 0 && inds.Count(x => !"AEIOU".Contains(x)) % inds.Count(x => "AEIOU".Contains(x)) == 0,
@@ -334,7 +331,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
 
     IEnumerator TwitchHandleForcedSolve ()
     {
-        Buttons[(int)solution.First()].OnInteract();
+        Buttons[(int)solution.PickRandom()].OnInteract();
         yield return new WaitForSeconds(0.1f);
     }
 }
