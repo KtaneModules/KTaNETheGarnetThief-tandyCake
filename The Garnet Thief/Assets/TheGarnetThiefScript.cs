@@ -18,7 +18,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
     public SpriteRenderer[] frontFrames;
     public TextMesh[] texts;
     private Coroutine[] buttonMovements = new Coroutine[4];
-    private Color[] frameColors = new Color[] { new Color(188f / 255, 73f / 255, 73f / 255), new Color(64f / 255, 131f / 255, 64f / 255), new Color(96f / 255, 96f / 255, 96f / 255), Color.white};
+    private Color[] frameColors = new Color[] { new Color32(188, 73, 73, 255), new Color32(64, 131, 64, 255), new Color32(96, 96, 96, 255), Color.white};
 
     static int moduleIdCounter = 1;
     int moduleId;
@@ -46,21 +46,20 @@ public class TheGarnetThiefScript : MonoBehaviour {
         { Faction.Police, Faction.Police, Faction.Police, Faction.Police },
         { Faction.Mafia, Faction.Cartel, Faction.Police, Faction.Beggar }
     };
-    static IEnumerable<Faction> factions = Enumerable.Range(0, 4).Cast<Faction>();
     int[] results = new int[4];
     List<Faction> solution;
 
     void Awake () {
         moduleId = moduleIdCounter++;
-        foreach (KMSelectable button in Buttons)
+        for (int i = 0; i < 4; i++)
         {
-            button.OnInteract += delegate ()
+            int ix = i;
+            Buttons[i].OnInteract += delegate ()
             {
-                int btn = Array.IndexOf(Buttons, button);
-                if (buttonMovements[btn] != null)
-                    StopCoroutine(buttonMovements[btn]);
-                buttonMovements[btn] = StartCoroutine(ButtonMove(button));
-                Submit((Faction)btn);
+                if (buttonMovements[ix] != null)
+                    StopCoroutine(buttonMovements[ix]);
+                buttonMovements[ix] = StartCoroutine(ButtonMove(Buttons[ix]));
+                Submit((Faction)ix);
                 return false;
             };
         }
@@ -79,6 +78,8 @@ public class TheGarnetThiefScript : MonoBehaviour {
     void GetTableRow()
     {
         string inds = Bomb.GetIndicators().Join("");
+        int vowelCount = inds.Count(x => "AEIOU".Contains(x));
+        int consonantCount = inds.Count(x => !"AEIOU".Contains(x));
         bool[] conditions = new bool[15]
         {
             Bomb.GetSerialNumberLetters().Count(x => "AEIOU".Contains(x)) > 1,
@@ -93,7 +94,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
             Bomb.GetPortPlates().All(x => x.Count() == 1) && Bomb.GetPortPlateCount() == 1,
             Bomb.GetSerialNumber().Any(x => "G3N1US".Contains(x)),
             Bomb.GetBatteryHolderCount() + Bomb.GetIndicators().Count() + Bomb.GetPortPlates().Count() == 16,
-            inds.Count(x => "AEIOU".Contains(x)) != 0 && inds.Count(x => !"AEIOU".Contains(x)) % inds.Count(x => "AEIOU".Contains(x)) == 0,
+            vowelCount == 0 || consonantCount % vowelCount == 0,
             Bomb.GetSolvableModuleNames().Contains("The Jukebox") && Bomb.GetSolvableModuleNames().Contains("Synchronization"),
             true
         };
@@ -102,33 +103,33 @@ public class TheGarnetThiefScript : MonoBehaviour {
 
     void GetContestants()
     {
+        Name[] chosenNames = availableNames.Shuffle().Take(7).ToArray();
         for (int i = 0; i < 7; i++)
-        {
-            contestants[i] = new Contestant(availableNames.PickRandom(), (Faction)UnityEngine.Random.Range(0, 4));
-            availableNames.Remove(contestants[i].name);
-        }
+            contestants[i] = new Contestant(chosenNames[i], (Faction)UnityEngine.Random.Range(0, 4));
     }
     void GetTruths()
     {
-        int fuckYouYoohyun = -1; //Yoohyun's condition needs to be checked last. If we encounter him, postpone his checking until the end.
+        int? fuckYouYoohyun = null; //Yoohyun's condition needs to be checked last. If we encounter him, postpone his checking until the end.
         for (int i = 0; i < 7; i++)
         {
             if (contestants[i].name == Name.Yoohyun)
                 fuckYouYoohyun = i;
             else contestants[i].lying = DetermineTruth(contestants[i]);
         }
-        if (fuckYouYoohyun != -1)
-            contestants[fuckYouYoohyun].lying = DetermineTruth(contestants[fuckYouYoohyun]);
+        if (fuckYouYoohyun != null)
+            contestants[fuckYouYoohyun.Value].lying = DetermineTruth(contestants[fuckYouYoohyun.Value]);
         for (int i = 0; i < 7; i++)
         {
             Contestant cont = contestants[i];
             cont.realFaction = cont.lying ? claimTable[tableRow, (int)cont.claimedFaction] : cont.claimedFaction; // if the contestant is lying, use the section of the table. Otherwise use the one they claimed.
         }
+        
     }
 
     void GetSolution()
     {
         var realFactions = contestants.Select(x => x.realFaction);
+        var allFactions = Enumerable.Range(0, 4).Cast<Faction>();
         for (int i = 0; i < 4; i++)
             results[i] = DetermineOutcome(realFactions, (Faction)i);
         List<Faction> winners;
@@ -136,15 +137,15 @@ public class TheGarnetThiefScript : MonoBehaviour {
         if (winners.Count == 1)
             solution = winners; 
         else
-        {
-            int[] realFactionCounts = factions.Select(x => realFactions.Count(y => x == y)).ToArray();
+        { 
+            int[] realFactionCounts = allFactions.Select(x => realFactions.Count(y => x == y)).ToArray();
             int minRealFactionCount = winners.Select(x => realFactionCounts[(int)x]).Min();
             winners = winners.Where(x => realFactionCounts[(int)x] == minRealFactionCount).ToList();
             if (winners.Count == 1)
                 solution = winners;
             else
             {
-                int[] claimedFactionCounts = factions.Select(fac => contestants.Select(cont => cont.claimedFaction).Count(y => y == fac)).ToArray();
+                int[] claimedFactionCounts = allFactions.Select(fac => contestants.Select(cont => cont.claimedFaction).Count(y => y == fac)).ToArray();
                 int minClaimedFactionCount = winners.Select(x => claimedFactionCounts[(int)x]).Min();
                 winners = winners.Where(x => claimedFactionCounts[(int)x] == minClaimedFactionCount).ToList();
                 solution = winners; //If there's not only one answer at this point, give up and just accept any tied answer.
@@ -175,8 +176,8 @@ public class TheGarnetThiefScript : MonoBehaviour {
                 Debug.LogFormat("[The Garnet Thief #{0}] {1} is lying. His actual faction is {2}.",
                                 moduleId, contestants[i].name.ToString(), contestants[i].realFaction.ToString());
         }
-        Debug.LogFormat("[The Garnet Thief #{0}] Choosing Mafia would give you {1} garnet{2}, Cartel => {3}, Police => {4}, Beggar => {5}.",
-                        moduleId, results[0], results[0] == 1 ? "" : "s", results[1], results[2], results[3]);
+        Debug.LogFormat("[The Garnet Thief #{0}] Outcomes: Mafia => {1}, Cartel => {2}, Police => {3}, Beggar => {4}.",
+                        moduleId, results[0], results[1], results[2], results[3]);
         if (solution.Count == 1)
             Debug.LogFormat("[The Garnet Thief #{0}] The correct faction to choose is {1}.", moduleId, solution[0].ToString());
         else Debug.LogFormat("[The Garnet Thief #{0}] The correct faction can be any out of: {1}.", moduleId, solution.Select(x => x.ToString()).Join(", "));
@@ -196,7 +197,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
     bool DetermineTruth(Contestant thisCont)
     {
         Faction[] claimedFactions = contestants.Select(cont => cont.claimedFaction).ToArray();
-        int[] factionCounts = factions.Select(x => claimedFactions.Count(y => x == y)).ToArray();
+        int[] factionCounts = Enumerable.Range(0,4).Select(x => claimedFactions.Count(y => x == (int)y)).ToArray();
         switch (thisCont.name)
         {
             case Name.Jungmoon: return factionCounts.Distinct().Count() == 4; //If this is not 4, there's at least 1 duplicate
@@ -210,9 +211,9 @@ public class TheGarnetThiefScript : MonoBehaviour {
             case Name.Sangmin: return factionCounts[0] == factionCounts[1]; // mafia = cartel claims
             case Name.Yohwan: return factionCounts[1] > factionCounts[0]; // cartel > mafia claims
             case Name.Yoonsun: return factionCounts.Any(x => x >= 4);
-            case Name.Hyunmin: return factionCounts.Any(count => factionCounts.Count(fjalsf => fjalsf == count) == 3); //returns if there's any factions which occur 3 times
+            case Name.Hyunmin: return factionCounts.Any(count => factionCounts.Count(fac => fac == count) == 3); //returns if there's any factions which occur 3 times
             case Name.Junghyun: return factionCounts[2] == factionCounts[3]; // police = beggar claims
-            default: throw new ArgumentOutOfRangeException("thisCont.name");
+            default: throw new ArgumentOutOfRangeException("Contestant has name " + thisCont.name.ToString() + ", which does not exist.");
         }
     }
 
@@ -233,7 +234,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
                     if (counts[2] != 0) //If there are no police, this'll throw a dividebyzero exception. 
                         return gemCnt % counts[2] / counts[3];
                     else return gemCnt / counts[3];
-                default: throw new ArgumentOutOfRangeException("you"); //This will never happen, but visual studio will not shut the fuck up if I don't include this.
+                default: throw new ArgumentOutOfRangeException("Your faction is one not identified."); //This will never happen, but visual studio will not shut the fuck up if I don't include this.
             }
         }
         else
@@ -284,7 +285,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
         cardTF.localScale = new Vector3(0, 1, 1);
         frontFrames[ix].color = frameColors[(int)contestants[ix].realFaction];
         frontSprites[ix].sprite = allFactionIcons[(int)contestants[ix].realFaction];
-        frontSprites[ix].flipX = true;
+        frontSprites[ix].flipX = true; //If we don't then the icon will be flipped.
         while (cardTF.localScale.x - Time.deltaTime > -1)
         {
             cardTF.localScale -= new Vector3(speed * Time.deltaTime, 0, 0);
