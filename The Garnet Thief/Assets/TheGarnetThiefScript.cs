@@ -94,7 +94,7 @@ public class TheGarnetThiefScript : MonoBehaviour {
             Bomb.GetPortPlateCount() >= 1 && Bomb.GetPortPlates().All(x => x.Count() == 1),
             Bomb.GetSerialNumber().Any(x => "G3N1US".Contains(x)),
             Bomb.GetBatteryHolderCount() + Bomb.GetIndicators().Count() + Bomb.GetPortPlates().Count() == 16,
-            vowelCount == 0 || consonantCount % vowelCount == 0,
+            (consonantCount == 0 && vowelCount == 0) || (vowelCount != 0 && consonantCount % vowelCount == 0),
             Bomb.GetSolvableModuleNames().Contains("The Jukebox") && Bomb.GetSolvableModuleNames().Contains("Synchronization"),
             true
         };
